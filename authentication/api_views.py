@@ -1,6 +1,6 @@
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, RetrieveDestroyAPIView, ListAPIView
 from rest_framework.views import APIView
-from .serializers import RegisterSerializer, EmailVerificationSerializer
+from .serializers import RegisterSerializer, EmailVerificationSerializer, LoginSerializer, UserSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -27,7 +27,7 @@ class RegisterAPIView(GenericAPIView):
             relative_link = reverse('authentication:email_verify')
             absolute_url = 'http://' + current_site.domain + relative_link + "?token=" + str(token)
             email_body = f'Hi {user.username} User the link bellow to verify your email\n {absolute_url}'
-            data = {'subject': 'Verify your email', 'body': email_body, 'to':user.email}
+            data = {'subject': 'Verify your email', 'body': email_body, 'to': user.email}
             Util.send_email(data)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -54,3 +54,23 @@ class VerifyEmailAPIView(APIView):
             return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
         except jwt.exceptions.DecodeError:
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LoginAPIView(GenericAPIView):
+
+    serializer_class = LoginSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserRetrieveDestroyAPIView(RetrieveDestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+
+class UserListAPIView(ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
