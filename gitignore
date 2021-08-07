@@ -26,7 +26,8 @@ GitHub.sublime-settings
 !.vscode/launch.json
 !.vscode/extensions.json
 .history
-# pycharm 
+# pycharm
+.idea
 .idea/
 .idea/.gitignore
 .idea/inspectionProfiles/Project_Default.xml
