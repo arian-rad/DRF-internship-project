@@ -1,18 +1,22 @@
 from rest_framework.generics import GenericAPIView, RetrieveDestroyAPIView, ListAPIView
 from rest_framework.views import APIView
-from .serializers import RegisterSerializer, EmailVerificationSerializer, LoginSerializer, UserSerializer
+from .serializers import RegisterSerializer, EmailVerificationSerializer, LoginSerializer, UserSerializer, \
+    RequestPasswordRestEmailSerializer, SetNewPasswordSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
 from .utils import Util
-from django.contrib.sites.shortcuts import get_current_site
-from django.urls import reverse
 import jwt
 from django.conf import settings
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .renderes import UserRenderer
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
 
 
 class RegisterAPIView(GenericAPIView):
@@ -75,3 +79,59 @@ class UserRetrieveDestroyAPIView(RetrieveDestroyAPIView):
 class UserListAPIView(ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
+class RequestPasswordRestEmailAPIView(GenericAPIView):
+    serializer_class = RequestPasswordRestEmailSerializer
+
+    def post(self, request):
+        # data = {'request': request, 'data': request.data}  # we need to access to request in
+        # # RequestPasswordRestEmailSerializer.
+        # # Since there is not self.request in RequestPasswordRestEmailSerializer, we sent data as a dictionary
+        # # containing request
+        # serializer = self.serializer_class(data=data)
+        # serializer.is_valid(raise_exception=True)
+        # return Response({'success': 'we have sent you an email to reset your password'}, status=status.HTTP_200_OK)
+
+        serializer = self.serializer_class(data=request.data)
+        email = request.data['email']
+        if User.objects.filter(email=email).exists():
+            user = User.objects.get(email=email)
+            user_id_b64 = urlsafe_base64_encode(smart_bytes(user.id))
+            token = PasswordResetTokenGenerator().make_token(user)
+            current_site = get_current_site(request=request)
+            relative_link = reverse('authentication:password_reset_confirm',
+                                    kwargs={'user_id_b64': user_id_b64, 'token': token})
+            absolute_url = 'http://' + current_site.domain + relative_link
+            email_body = f'Hi  User the link bellow to reset your password\n {absolute_url}'
+            data = {'subject': 'Rest your password', 'body': email_body, 'to': user.email}
+            Util.send_email(data)
+        return Response({'success': 'we have sent you an email to reset your password'}, status=status.HTTP_200_OK)
+
+
+class PasswordTokenCheckAPIView(GenericAPIView):
+    def get(self, request, user_id_b64, token):
+        try:
+            user_id = smart_str((urlsafe_base64_decode(user_id_b64)))
+            user = User.objects.get(id=user_id)
+
+            if not PasswordResetTokenGenerator().check_token(user, token):  # returns False if the user has already
+                # used the token
+                return Response({'error': 'Token is valid. please request a new one'},
+                                status=status.HTTP_401_UNAUTHORIZED)
+
+            return Response(
+                {'success': True, 'message': 'Credentials Valid', 'user_id_b64': user_id_b64, 'token': token},
+                status=status.HTTP_200_OK)
+
+        except DjangoUnicodeDecodeError:
+            return Response({'error': 'Token is valid. please request a new one'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class SetNewPasswordAPIView(GenericAPIView):
+    serializer_class = SetNewPasswordSerializer
+
+    def patch(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({'success': True, 'message': 'Password is rest Successfully'}, status=status.HTTP_200_OK)
