@@ -21,7 +21,7 @@ class ExpenseRetrieveAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
     permission_classes = (permissions.IsAuthenticated, IsOwner,)
-    lookup_field = 'id'
+    # lookup_field = 'id'---> checkout .urls.py comments!
 
     def perform_create(self, serializer):
         return serializer.save(owner=self.request.user)
