@@ -3,6 +3,7 @@ db.sqlite3
 *.pot
 *.pyc
 __pycache__
+__pycache__/
 media
 *.py[cod]
 *$py.class
