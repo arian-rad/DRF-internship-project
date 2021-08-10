@@ -8,6 +8,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from .utils import Util
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -54,6 +55,7 @@ class LoginSerializer(serializers.ModelSerializer):
         email = attrs.get('email')
         password = attrs.get('password')
         user = auth.authenticate(email=email, password=password)
+
         if not user:  # User not found
             raise AuthenticationFailed('Invalid username or password')
         if not user.is_active:
@@ -61,6 +63,25 @@ class LoginSerializer(serializers.ModelSerializer):
         if not user.is_verified:
             raise AuthenticationFailed('Email is not verified')
         return {'username': user.username, 'email': email, 'tokens': user.tokens()}
+
+
+class LogOutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    default_error_messages = {
+        'bad_token': 'Token is invalid'
+    }
+
+    def validate(self, attrs):
+        self.token = attrs.get('refresh')
+        return attrs
+
+    def save(self, **kwargs):
+        try:
+            RefreshToken(self.token).blacklist()
+        except TokenError:
+            self.fail('bad_token')
+
 
 
 class RequestPasswordRestEmailSerializer(serializers.Serializer):

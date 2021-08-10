@@ -1,7 +1,7 @@
 from rest_framework.generics import GenericAPIView, RetrieveDestroyAPIView, ListAPIView
 from rest_framework.views import APIView
 from .serializers import RegisterSerializer, EmailVerificationSerializer, LoginSerializer, UserSerializer, \
-    RequestPasswordRestEmailSerializer, SetNewPasswordSerializer
+    RequestPasswordRestEmailSerializer, SetNewPasswordSerializer, LogOutSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -17,6 +17,7 @@ from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnico
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
+from rest_framework import permissions
 
 
 class RegisterAPIView(GenericAPIView):
@@ -69,6 +70,18 @@ class LoginAPIView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LogoutAPIView(GenericAPIView):
+    serializer_class = LogOutSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class UserRetrieveDestroyAPIView(RetrieveDestroyAPIView):
